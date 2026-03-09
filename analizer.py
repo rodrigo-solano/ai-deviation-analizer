@@ -15,24 +15,24 @@ class AgentToolkit:
         self,
         df: pd.DataFrame,
         date_col: str,
-        group_col: str,
         value_col: str,
+        *groups_cols,
         ):
         
         '''
         Args:
             df (pd.DataFrame): The input dataset.
-            date_col (str): The name of the column containing dates in 'YYYY-WW' format.
-            group_col (str): The name of the column containing group identifiers (e.g., countries).
-            value_col (str): The name of the column containing numeric values to analyze.
+            date_col (str): The name of the column containing dates in 'YYYY-WW' format (e.g. 'yearweek').
+            value_col (str): The name of the column containing numeric values to analyze (e.g. 'searchers').
+            groups_cols (str): The names of one or more columns containing groups identifiers (e.g. 'countries' and 'products').
         '''
 
         # Copies the dataframe and corrects column names and inputs.
         self.df = df.copy()
         self.df.columns = self.df.columns.str.lower()
         self.date_col = date_col.lower()
-        self.group_col = group_col.lower()
         self.value_col = value_col.lower()
+        self.groups_cols = [x.lower() for x in groups_cols]
 
         # Runs process.
         self._process()
@@ -54,7 +54,7 @@ class AgentToolkit:
 
     def validate_existence(self):
         # Creates sets of columns.
-        cols = {self.date_col, self.group_col, self.value_col}
+        cols = set([self.date_col, self.value_col] + self.groups_cols)
         df_cols = set(self.df.columns.values)
 
         # Checks if input columns are in dataframe columns.
@@ -73,7 +73,7 @@ class AgentToolkit:
 
     # def sort_df(self):
     #     # Sorts dataframe by date and grouping columns
-    #     self.df = self.df.sort_values([self.date_col, self.group_col])
+    #     self.df = self.df.sort_values([self.date_col, self.groups_cols])
 
     def complete_df(self):
         # Calculates range of weekly observations.
@@ -81,17 +81,15 @@ class AgentToolkit:
         max_date = self.df[self.date_col].max()
         dates = pd.date_range(start=min_date, end=max_date, freq='W-MON')
 
-        # Calculates unique values of grouping column.
-        groups = self.df[self.group_col].unique()
+        # Calculates unique values of grouping columns.
+        groups = [self.df[x].unique() for x in self.groups_cols]
 
         # Create a complete dataframe, using a multiindex with dates and groups.
-        complete_index = pd.MultiIndex.from_product(
-            [dates, groups], names=[self.date_col, self.group_col]
-        )
+        complete_index = pd.MultiIndex.from_product([dates] + groups, names=[self.date_col] + self.groups_cols)
         complete_df = pd.DataFrame(index=complete_index).reset_index()
 
         # Left-joins with the original dataframe to fill the observed values.
-        self.df = pd.merge(complete_df, self.df, on=[self.date_col, self.group_col], how='left')
+        self.df = pd.merge(complete_df, self.df, on=[self.date_col] + self.groups_cols, how='left')
 
     def create_yw(self):
         # Creates columns with year and week numbers.
@@ -100,10 +98,10 @@ class AgentToolkit:
 
     def create_4w(self):
         # Creates moving average of lenght 4
-        self.df['{} 4w'.format(self.value_col)] = self.df.groupby(self.group_col)[self.value_col].transform(lambda x: x.rolling(4, 4).mean())
+        self.df['{} 4w'.format(self.value_col)] = self.df.groupby(self.groups_cols)[self.value_col].transform(lambda x: x.rolling(4, 4).mean())
 
     def create_deltas(self):
         # Creates deviations from the sorted complete dataframe.
-        self.df['vs_lw'] = self.df.groupby(self.group_col)[self.value_col].pct_change(fill_method=None)
-        self.df['vs_l4w'] = self.df.groupby(self.group_col)['{} 4w'.format(self.value_col)].pct_change(fill_method=None)
-        self.df['vs_ly'] = self.df.groupby([self.group_col, 'weeknum'])[self.value_col].pct_change(fill_method=None)
+        self.df['vs_lw'] = self.df.groupby(self.groups_cols)[self.value_col].pct_change(fill_method=None)
+        self.df['vs_l4w'] = self.df.groupby(self.groups_cols)['{} 4w'.format(self.value_col)].pct_change(fill_method=None)
+        self.df['vs_ly'] = self.df.groupby(self.groups_cols + ['weeknum'])[self.value_col].pct_change(fill_method=None)
