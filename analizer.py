@@ -43,7 +43,7 @@ class AgentToolkit:
             # Runs functions.
             self.correct_datetime()
             self.correct_numeric()
-            # self.sort_df()
+            self.group_by()
             self.complete_df()
             self.create_yw()
             self.create_4w()
@@ -71,9 +71,8 @@ class AgentToolkit:
         # Corrects format of numeric values, taking into account spanish decimals.
         self.df[self.value_col] = pd.to_numeric(self.df[self.value_col].astype(str).str.replace(',', '.'))
 
-    # def sort_df(self):
-    #     # Sorts dataframe by date and grouping columns
-    #     self.df = self.df.sort_values([self.date_col, self.groups_cols])
+    def group_by(self):
+        self.df = self.df[[self.date_col] + self.groups_cols + [self.value_col]].groupby([self.date_col] + self.groups_cols, as_index=False).sum()
 
     def complete_df(self):
         # Calculates range of weekly observations.
@@ -97,11 +96,24 @@ class AgentToolkit:
         self.df['weeknum'] = self.df[self.date_col].dt.isocalendar().week
 
     def create_4w(self):
-        # Creates moving average of lenght 4
+        # Creates moving average of lenght four.
         self.df['{} 4w'.format(self.value_col)] = self.df.groupby(self.groups_cols)[self.value_col].transform(lambda x: x.rolling(4, 4).mean())
 
     def create_deltas(self):
-        # Creates deviations from the sorted complete dataframe.
+        # Creates deviation columns.
         self.df['vs_lw'] = self.df.groupby(self.groups_cols)[self.value_col].pct_change(fill_method=None)
         self.df['vs_l4w'] = self.df.groupby(self.groups_cols)['{} 4w'.format(self.value_col)].pct_change(fill_method=None)
         self.df['vs_ly'] = self.df.groupby(self.groups_cols + ['weeknum'])[self.value_col].pct_change(fill_method=None)
+
+
+# import numpy as np
+# pd.set_option('expand_frame_repr', False)
+# df = pd.DataFrame({
+#     'yearweek': ['2024-01', '2024-02', '2024-03', '2024-04', '2024-05'] * 6,
+#     'country': ['Country_A'] * 15 + ['Country_B'] * 15,
+#     'producto': ['Product_1', 'Product_2', 'Product_3'] * 10,
+#     'searchers': np.random.randint(50, 200, 30)
+# })
+# print(df)
+# toqan = AgentToolkit(df, 'yearweek', 'searchers', 'country', 'producto')
+# print(toqan.df)
