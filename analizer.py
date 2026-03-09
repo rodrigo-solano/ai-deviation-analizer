@@ -46,6 +46,7 @@ class AgentToolkit:
             # self.sort_df()
             self.complete_df()
             self.create_yw()
+            self.create_4w()
             self.create_deltas()
         else:
             # Raises something.
@@ -97,7 +98,12 @@ class AgentToolkit:
         self.df['year'] = self.df[self.date_col].dt.isocalendar().year
         self.df['weeknum'] = self.df[self.date_col].dt.isocalendar().week
 
+    def create_4w(self):
+        # Creates moving average of lenght 4
+        self.df['{} 4w'.format(self.value_col)] = self.df.groupby(self.group_col)[self.value_col].transform(lambda x: x.rolling(4, 4).mean())
+
     def create_deltas(self):
         # Creates deviations from the sorted complete dataframe.
         self.df['vs_lw'] = self.df.groupby(self.group_col)[self.value_col].pct_change(fill_method=None)
+        self.df['vs_l4w'] = self.df.groupby(self.group_col)['{} 4w'.format(self.value_col)].pct_change(fill_method=None)
         self.df['vs_ly'] = self.df.groupby([self.group_col, 'weeknum'])[self.value_col].pct_change(fill_method=None)
