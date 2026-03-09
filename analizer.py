@@ -16,7 +16,7 @@ class AgentToolkit:
         df: pd.DataFrame,
         date_col: str,
         value_col: str,
-        *groups_cols,
+        *groups_cols: tuple[str, ...],
         ):
         
         '''
